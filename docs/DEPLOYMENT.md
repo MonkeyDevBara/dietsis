@@ -18,6 +18,15 @@ Target: satu VPS Ubuntu, `https://dietsis.transbara.my.id`. Nginx menyajikan SPA
 | Service | `dietsis.service`; backup: `dietsis-backup.service` + `.timer` (02:30 + acak ≤ 10 mnt) |
 | User | `dietsis` (sistem, tanpa shell) |
 
+## Catatan untuk server yang sudah dipakai situs lain (kasus gear2)
+
+- **Port**: cek dulu `ss -ltn`. Di gear2 port 8787 sudah dipakai layanan lain, jadi `DIETSIS_ADDR=127.0.0.1:8791` di `/etc/dietsis/dietsis.env` dan `proxy_pass` di Nginx disesuaikan (keduanya harus sama).
+- **Lokasi static**: `DIETSIS_WWW_ROOT=/var/www/html/dietsis ./deploy/install.sh` memakai folder yang sudah ada; hanya `releases/` dan symlink `current` di dalamnya yang dikelola. Ubah `root` di `nginx.conf` ke `<folder>/current`.
+- **Nginx 1.24 (Ubuntu 24.04)** menolak `http2 on;`; konfigurasi memakai `listen 443 ssl;` (HTTP/1.1 ke origin; Cloudflare tetap melayani HTTP/2 ke pengunjung).
+- **Di belakang Cloudflare (proxy oranye)**: jalankan `sudo ./deploy/cloudflare-realip.sh` sekali agar Nginx memakai `CF-Connecting-IP` hanya dari rentang IP Cloudflare; tanpa itu semua pengunjung tampak berasal dari IP Cloudflare dan rate limit per-IP tidak berarti. Mode SSL Cloudflare harus *Full* atau *Full (strict)* (jangan *Flexible*: akan terjadi redirect loop karena port 80 mengalihkan ke HTTPS).
+- **Sertifikat**: `certbot certonly --webroot -w /var/www/certbot` lalu tambahkan `renew_hook = systemctl reload nginx` pada `/etc/letsencrypt/renewal/<domain>.conf` agar pembaruan otomatis memuat sertifikat baru.
+- Situs lain tidak disentuh: hanya file situs baru di `sites-available`, snippet `dietsis-*.conf`, dan reload Nginx setelah `nginx -t` lolos.
+
 ## Prasyarat (sekali)
 
 1. **DNS**: A/AAAA `dietsis.transbara.my.id` → IP VPS.
