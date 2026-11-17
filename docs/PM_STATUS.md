@@ -139,6 +139,14 @@ Sengaja dilewati: pengujian beban, pen-test eksternal, monitoring/alerting, enkr
 
 Belum diuji: unit systemd dan `install.sh` di Ubuntu; login Google asli.
 
+## Deploy ke gear2 (2026-11-17) ✅ live
+
+- Disetujui eksplisit oleh pemilik; akses via SSH `gear2` (Ubuntu 24.04, x86_64, Nginx 1.24 yang sudah melayani ±19 situs). Domain: https://dietsis.transbara.my.id (Cloudflare proxy, sertifikat Let's Encrypt via webroot, berlaku sampai 2027-02-15, pembaruan otomatis + reload Nginx).
+- Lokasi: static `/var/www/html/dietsis/releases/<versi>` (symlink `current`), binary `/opt/dietsis/bin`, data `/var/lib/dietsis`, backup `/var/backups/dietsis`, config `/etc/dietsis/dietsis.env`. API di `127.0.0.1:8791` (8787 dipakai layanan lain).
+- Terverifikasi di server nyata: layanan aktif dengan seluruh opsi hardening (`systemd-analyze security` 1.7 OK), health 200, SPA + deep link + manifest + service worker lewat domain, header CSP/HSTS, CSRF 403 lewat edge, http→https, IP klien asli terbaca (bukan IP Cloudflare), backup manual sukses dan timer terjadwal (02:30 UTC), situs lain tetap normal, tombol Google dirender oleh Google Identity tanpa error CSP.
+- Perbaikan dari temuan deploy: `http2 on;` (Nginx ≥ 1.25) dihapus; `install.sh` mendukung `DIETSIS_WWW_ROOT`; `cloudflare-realip.sh` ditambahkan; tipe MIME manifest; tarball rilis tanpa berkas `._*` macOS.
+- Belum dicoba: login Google sungguhan (hanya pemilik akun yang bisa).
+
 ## Verifikasi terakhir (M7+M8)
 
 | Perintah | Hasil |
@@ -214,9 +222,9 @@ Belum diuji: unit systemd dan `install.sh` di Ubuntu; login Google asli.
 
 - [x] Seluruh fitur inti berfungsi
 - [x] Frontend React berjalan · [x] Backend Go berjalan · [x] SQLite berjalan
-- [ ] Google OAuth berfungsi (kode dan test lengkap; **belum dicoba dengan Google asli**, butuh Client ID)
+- [ ] Google OAuth berfungsi (live di gear2, tombol Google tampil; **tinggal dicoba login oleh pemilik**)
 - [x] Sesi aman · [x] Data terisolasi per pengguna
 - [x] Offline-first berjalan · [x] Sinkronisasi berfungsi · [x] Konflik ditangani
 - [x] Export CSV · [x] Hapus data · [x] Backup otomatis (timer; diuji manual dengan binary, belum di Ubuntu)
 - [x] Test penting lulus · [x] Build produksi berhasil
-- [x] Dokumentasi lengkap · [ ] Deployment siap dijalankan (siap; **belum dijalankan di VPS**, menunggu persetujuan dan Client ID)
+- [x] Dokumentasi lengkap · [x] Deployment dijalankan (gear2, live)

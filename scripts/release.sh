@@ -32,7 +32,8 @@ find "$OUT/www" -name '*.map' -delete
 cp server/deploy/* "$OUT/deploy/"
 echo "$VERSION" > "$OUT/VERSION"
 
-tar -C release -czf "$OUT.tar.gz" "$(basename "$OUT")"
+# COPYFILE_DISABLE: macOS tar would add ._* AppleDouble files that then end up in the web root.
+COPYFILE_DISABLE=1 tar -C release -czf "$OUT.tar.gz" "$(basename "$OUT")"
 ( cd release && shasum -a 256 "$(basename "$OUT").tar.gz" > "$(basename "$OUT").tar.gz.sha256" )
 echo ">> $OUT.tar.gz"
 cat "$OUT.tar.gz.sha256"

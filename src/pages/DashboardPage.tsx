@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { ActivityCard } from '../components/ActivityCard'
 import { PageHeader } from '../components/AppShell'
 import { DateSwitcher } from '../components/DateSwitcher'
+import { InstallCard } from '../components/InstallCard'
 import { FoodPickerSheet } from '../components/food/FoodPickerSheet'
 import { SyncBadge } from '../components/SyncBadge'
 import { WaterCard } from '../components/WaterCard'
@@ -42,6 +43,7 @@ export function DashboardPage() {
       <PageHeader title={`Halo, ${profile.display_name}`} subtitle="Ringkasan harianmu." actions={<SyncBadge status={sync} />} />
 
       <div className="flex flex-col gap-4">
+        <InstallCard />
         <DateSwitcher date={date} onChange={setDate} />
 
         <Card aria-label="Kalori">
