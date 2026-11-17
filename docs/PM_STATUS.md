@@ -1,6 +1,6 @@
 # PM Status
 
-**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M2 selesai → M3 berikutnya
+**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M3 selesai → M4 berikutnya
 
 ## Ringkasan milestone
 
@@ -9,8 +9,8 @@
 | M0 | Project foundation | ✅ Selesai |
 | M1 | UI/UX | ✅ Selesai |
 | M2 | Database & backend | ✅ Selesai |
-| M3 | Authentication | ⏳ Berikutnya |
-| M4 | Business API | ☐ |
+| M3 | Authentication | ✅ Selesai |
+| M4 | Business API | ⏳ Berikutnya |
 | M5 | Frontend integration | ☐ |
 | M6 | Offline engine | ☐ |
 | M7 | QA & security | ☐ |
@@ -83,7 +83,28 @@ Temuan penting dari test: pernyataan increment air di DATABASE.md memakai `exclu
 
 Belum di M2 (sesuai rencana): rate limit, CSRF, auth middleware (M3); decoder JSON ketat dan job retensi (M4); backup (M8).
 
-## Verifikasi terakhir (M2)
+## M3 — Authentication ✅
+
+Dikerjakan:
+- `internal/auth/google.go`: verifikasi ID token Google dengan stdlib. Algoritma **dikunci RS256** (tolak `none`, HS256 key-confusion, RS384), `kid` wajib, tanda tangan diverifikasi **sebelum** klaim dibaca, lalu `iss`, `aud`, `azp`, `exp` (tepat di `exp` = kedaluwarsa), `iat`/`nbf` (toleransi 60 dtk), `sub`, `email`, `email_verified`. Client ID kosong tidak pernah cocok dengan `aud` kosong.
+- `internal/auth/jwks.go`: cache JWKS (ikut `Cache-Control`), refetch ≤ 1×/menit termasuk untuk `kid` tak dikenal, kunci lama tetap dipakai saat Google gagal, hanya RSA ≥ 2048 bit.
+- `internal/auth/session.go`: token acak 32 byte, **hanya SHA-256 yang disimpan**, cookie `__Host-dietsis_session` (`HttpOnly`, `Secure`, `SameSite=Strict`, tanpa Domain; di dev tanpa HTTPS memakai `dietsis_session`), sliding renewal setelah separuh TTL, revokasi per sesi dan semua perangkat, token baru di setiap login.
+- `internal/limit`: token bucket per kunci, memori terbatas (100.000 kunci + bucket overflow), sapu kunci idle.
+- `internal/httpx`: decoder JSON ketat (413/415/400), CSRF guard (Origin / `Sec-Fetch-Site` + JSON-only), middleware autentikasi (identitas hanya dari sesi; `httpx.CurrentUser`), rate limit login/IP/user/gagal-auth, endpoint `POST /auth/google`, `GET /auth/me`, `POST /auth/logout`.
+- `internal/store`: `UpsertGoogleUser` (identitas = `sub`), `UserHasProfile`, CRUD sesi, purge sesi kedaluwarsa (loop tiap jam di `serve`).
+- Tanpa `DIETSIS_GOOGLE_CLIENT_ID`, server tetap jalan dan `POST /auth/google` menjawab 503 (dev).
+
+Belum diuji dengan Google sungguhan: login end-to-end butuh Client ID (M5). Yang sudah diverifikasi dengan data nyata: JWKS publik Google berhasil diunduh dan di-parse (2 kunci RSA).
+
+## Verifikasi terakhir (M3)
+
+| Perintah | Hasil |
+|---|---|
+| `npm run check` | lulus: 57 test frontend; 159 test/subtest Go (auth 40+ kasus negatif JWT, sesi, CSRF, rate limit, otorisasi antar-user) |
+| Live (binary, DB sementara) | tanpa client id → 503; token palsu → 401 generik; CSRF origin asing/tanpa origin → 403; form → 415; logout idempoten 204 + cookie dihapus; login ke-6 dalam burst → 429 + `Retry-After` |
+| JWKS Google asli | diunduh dan di-parse (2 kunci, max-age ±5 jam) |
+
+## Verifikasi M2
 
 | Perintah | Hasil |
 |---|---|

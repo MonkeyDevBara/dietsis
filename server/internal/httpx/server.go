@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/netip"
 	"time"
+
+	"github.com/MonkeyDevBara/dietsis/server/internal/auth"
 )
 
 // Deps carries everything the handlers need. Grows as milestones add auth and the sync engine.
@@ -15,6 +17,18 @@ type Deps struct {
 	Ping func(context.Context) error
 	// TrustedProxies lists the peers allowed to set X-Forwarded-For (Nginx on loopback).
 	TrustedProxies []netip.Prefix
+	// Auth enables /auth/* and CSRF protection; nil registers only health (used by narrow tests).
+	Auth *AuthDeps
+}
+
+// AuthDeps wires authentication. Verifier may be nil when Google login is not configured
+// (development without a client id): /auth/google then answers 503.
+type AuthDeps struct {
+	Sessions     *auth.Sessions
+	Verifier     auth.IDTokenVerifier
+	Users        userStore
+	PublicOrigin string
+	Limits       Limits
 }
 
 type healthResponse struct {
@@ -40,8 +54,12 @@ func NewHandler(d Deps) http.Handler {
 		panic("httpx: Deps.Ping is required")
 	}
 	rt := router{mux: http.NewServeMux()}
+	general := func(h http.Handler) http.Handler { return h }
+	if d.Auth != nil {
+		general = func(h http.Handler) http.Handler { return rateLimitIP(d.Auth.Limits.general, h) }
+	}
 
-	rt.handle("GET /api/v1/health", func(w http.ResponseWriter, r *http.Request) {
+	healthHandler := func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
 		if err := d.Ping(ctx); err != nil {
@@ -50,11 +68,21 @@ func NewHandler(d Deps) http.Handler {
 			return
 		}
 		WriteData(w, http.StatusOK, healthResponse{Status: "ok", Version: d.Version})
-	})
+	}
+	rt.mux.Handle("GET /api/v1/health", limitBody(DefaultBodyLimit, general(http.HandlerFunc(healthHandler))))
 
 	rt.handle("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		WriteError(w, http.StatusNotFound, ErrorBody{Code: "not_found", Message: "Endpoint tidak ditemukan."})
 	})
 
-	return chain(rt.mux, d.TrustedProxies)
+	var root http.Handler = rt.mux
+	if d.Auth != nil {
+		kit := &authKit{sessions: d.Auth.Sessions, verifier: d.Auth.Verifier, users: d.Auth.Users, limits: d.Auth.Limits, origin: d.Auth.PublicOrigin}
+		rt.mux.Handle("POST /api/v1/auth/google", limitBody(DefaultBodyLimit, rateLimitIP(kit.limits.login, http.HandlerFunc(kit.login))))
+		rt.mux.Handle("GET /api/v1/auth/me", kit.authenticate(http.HandlerFunc(kit.me)))
+		rt.mux.Handle("POST /api/v1/auth/logout", limitBody(DefaultBodyLimit, general(http.HandlerFunc(kit.logout))))
+		root = csrfGuard(kit.origin, rt.mux)
+	}
+
+	return chain(root, d.TrustedProxies)
 }

@@ -22,7 +22,8 @@
    - `exp` > sekarang, `iat` ≤ sekarang + 60 s (toleransi jam 60 s);
    - `sub` tidak kosong, `email_verified = true`.
 3. Upsert user berdasar `sub` → buat sesi baru (sesi lama tidak dipakai ulang → tidak ada session fixation).
-4. Alasan penolakan detail hanya di log server; klien menerima `401` generik.
+4. Alasan penolakan detail hanya di log server; klien menerima `401` generik. Kegagalan mengambil kunci Google (jaringan/JWKS rusak) menghasilkan `503`, bukan `401`. Bila Google tidak terjangkau, kunci yang sudah di-cache tetap dipakai.
+5. JWKS: hanya kunci RSA ≥ 2048 bit dengan `use=sig`; refetch maksimal 1×/menit, termasuk saat `kid` tak dikenal (mencegah serangan `kid` acak menjadi flood ke Google).
 
 Risiko sisa: ID token curian dapat dipakai login sampai `exp` (≤ 1 jam). Mitigasi: token hanya diterbitkan ke origin terdaftar dan dikirim via HTTPS; CSP membatasi skrip pihak ketiga.
 
@@ -74,7 +75,10 @@ Token bucket in-memory (`internal/limit`), IP klien dari `X-Forwarded-For` **han
 | `POST /auth/google` | IP | 10/menit, burst 5 |
 | Endpoint terautentikasi | user | 300/menit, burst 60 |
 | `POST /sync/push` | user | 60/menit, burst 10 |
-| Lainnya tanpa sesi | IP | 60/menit, burst 20 |
+| Lainnya tanpa sesi (health, logout) | IP | 60/menit, burst 20 |
+| Sesi tidak valid pada endpoint terautentikasi | IP | 30/menit, burst 10 (mempersulit tebak token) |
+
+Identifikasi IP: peer TCP; `X-Forwarded-For` hanya dipakai bila peer ada di `DIETSIS_TRUSTED_PROXIES`, dibaca dari kanan sehingga entri yang disisipkan klien diabaikan. Tabel limiter dibatasi 100.000 kunci (kunci baru berbagi satu bucket bila penuh) agar spoofing kunci tidak menghabiskan memori.
 
 Melebihi → `429` + `Retry-After`. Nginx juga membatasi koneksi (`limit_req` sebagai lapis luar).
 

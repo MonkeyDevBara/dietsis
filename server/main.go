@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/MonkeyDevBara/dietsis/server/internal/auth"
 	"github.com/MonkeyDevBara/dietsis/server/internal/config"
 	"github.com/MonkeyDevBara/dietsis/server/internal/httpx"
 	"github.com/MonkeyDevBara/dietsis/server/internal/store"
@@ -88,12 +89,32 @@ func serve(cfg config.Config) error {
 	}
 	defer db.Close()
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// A typed-nil verifier would defeat the "not configured" check, so only assign when configured.
+	var verifier auth.IDTokenVerifier
+	if cfg.GoogleClientID != "" {
+		verifier = &auth.Verifier{ClientID: cfg.GoogleClientID, Keys: auth.NewJWKSCache(auth.GoogleJWKSURL, nil), Now: time.Now}
+	} else {
+		slog.Warn("DIETSIS_GOOGLE_CLIENT_ID is empty: Google login is disabled (POST /auth/google answers 503)")
+	}
+	sessions := &auth.Sessions{Store: db, TTL: cfg.SessionTTL, Secure: cfg.CookieSecure, Now: time.Now}
+	go purgeSessionsLoop(ctx, db)
+
 	srv := &http.Server{
 		Addr: cfg.Addr,
 		Handler: httpx.NewHandler(httpx.Deps{
 			Version:        version,
 			Ping:           db.Ping,
 			TrustedProxies: cfg.TrustedProxies,
+			Auth: &httpx.AuthDeps{
+				Sessions:     sessions,
+				Verifier:     verifier,
+				Users:        db,
+				PublicOrigin: cfg.PublicOrigin,
+				Limits:       httpx.DefaultLimits(),
+			},
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
@@ -101,9 +122,6 @@ func serve(cfg config.Config) error {
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    16 << 10,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -124,4 +142,28 @@ func serve(cfg config.Config) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
+}
+
+// purgeSessionsLoop deletes expired sessions at start and then hourly until ctx ends.
+func purgeSessionsLoop(ctx context.Context, db *store.DB) {
+	purge := func() {
+		if n, err := db.PurgeExpiredSessions(ctx, time.Now()); err != nil {
+			if ctx.Err() == nil {
+				slog.Error("purge expired sessions", "err", err)
+			}
+		} else if n > 0 {
+			slog.Info("purged expired sessions", "count", n)
+		}
+	}
+	purge()
+	t := time.NewTicker(time.Hour)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			purge()
+		}
+	}
 }

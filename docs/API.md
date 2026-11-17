@@ -160,7 +160,9 @@ Server memverifikasi tanda tangan RS256 (JWKS Google), `iss`, `aud` = client ID,
 { "data": { "user": { "id": "…", "email": "…", "name": "…", "picture": "…", "created_at": 1763350000000 }, "has_profile": false, "data_epoch": 1 } }
 ```
 
-Error: `400 bad_request` (credential kosong), `401 unauthenticated` (token tidak valid — alasan detail hanya di log), `429`.
+Error: `400 bad_request` (credential kosong, field tak dikenal), `401 unauthenticated` (token tidak valid — pesan generik, alasan detail hanya di log), `403 csrf_failed`, `415`, `429`, `503 unavailable` (login Google belum dikonfigurasi di server, atau kunci publik Google tidak dapat diambil — ini bukan kesalahan token sehingga bukan 401).
+
+Login menghapus sesi lama milik browser yang sama (bila ada) dan selalu menerbitkan token baru.
 
 ### `GET /auth/me`
 
