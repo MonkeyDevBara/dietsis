@@ -14,6 +14,7 @@ import (
 
 	"github.com/MonkeyDevBara/dietsis/server/internal/config"
 	"github.com/MonkeyDevBara/dietsis/server/internal/httpx"
+	"github.com/MonkeyDevBara/dietsis/server/internal/store"
 )
 
 // version is set at build time: -ldflags "-X main.version=v1.2.3".
@@ -41,11 +42,13 @@ func run(args []string) error {
 	switch cmd {
 	case "serve":
 		return serve(cfg)
+	case "migrate":
+		return migrate(cfg)
 	case "version":
 		fmt.Println(version)
 		return nil
 	default:
-		return fmt.Errorf("unknown command %q (available: serve, version)", cmd)
+		return fmt.Errorf("unknown command %q (available: serve, migrate, version)", cmd)
 	}
 }
 
@@ -56,10 +59,42 @@ func newLogger(cfg config.Config) *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 }
 
+func openAndMigrate(ctx context.Context, cfg config.Config) (*store.DB, error) {
+	db, err := store.Open(ctx, cfg.DBPath)
+	if err != nil {
+		return nil, fmt.Errorf("open database: %w", err)
+	}
+	if err := db.Migrate(ctx); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("migrate database: %w", err)
+	}
+	return db, nil
+}
+
+func migrate(cfg config.Config) error {
+	db, err := openAndMigrate(context.Background(), cfg)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	slog.Info("database is up to date", "path", cfg.DBPath)
+	return nil
+}
+
 func serve(cfg config.Config) error {
+	db, err := openAndMigrate(context.Background(), cfg)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
 	srv := &http.Server{
-		Addr:              cfg.Addr,
-		Handler:           httpx.NewHandler(httpx.Deps{Version: version}),
+		Addr: cfg.Addr,
+		Handler: httpx.NewHandler(httpx.Deps{
+			Version:        version,
+			Ping:           db.Ping,
+			TrustedProxies: cfg.TrustedProxies,
+		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

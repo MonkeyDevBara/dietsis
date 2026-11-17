@@ -105,10 +105,12 @@ Partial index hanya dipakai bila query menyertakan `deleted_at IS NULL` — dive
 **Increment air atomik** (satu statement, tanpa read-modify-write di aplikasi):
 
 ```sql
-INSERT INTO days (user_id, date, water_glasses, updated_at) VALUES (?, ?, max(0, min(100, ?)), ?)
+INSERT INTO days (user_id, date, water_glasses, updated_at) VALUES (?1, ?2, max(0, min(100, ?3)), ?4)
 ON CONFLICT (user_id, date) DO UPDATE
-SET water_glasses = max(0, min(100, water_glasses + excluded.water_glasses)), updated_at = excluded.updated_at;
+SET water_glasses = max(0, min(100, water_glasses + ?3)), updated_at = ?4;
 ```
+
+Parameter `?3` (delta) harus dipakai langsung di `DO UPDATE`, **bukan** `excluded.water_glasses`: nilai `excluded` sudah dijepit ≥ 0 oleh bagian INSERT sehingga pengurangan akan hilang diam-diam (ditemukan oleh test di M2).
 
 **Kompaksi change log** (dalam transaksi yang sama dengan penulisan entitas):
 

@@ -1,6 +1,6 @@
 # PM Status
 
-**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M1 selesai → M2 berikutnya
+**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M2 selesai → M3 berikutnya
 
 ## Ringkasan milestone
 
@@ -8,8 +8,8 @@
 |---|---|---|
 | M0 | Project foundation | ✅ Selesai |
 | M1 | UI/UX | ✅ Selesai |
-| M2 | Database & backend | ⏳ Berikutnya |
-| M3 | Authentication | ☐ |
+| M2 | Database & backend | ✅ Selesai |
+| M3 | Authentication | ⏳ Berikutnya |
 | M4 | Business API | ☐ |
 | M5 | Frontend integration | ☐ |
 | M6 | Offline engine | ☐ |
@@ -70,7 +70,27 @@ Batasan yang disengaja di M1 (dikerjakan milestone berikutnya):
 
 Penyimpangan: warna protein diganti ke magenta (`#c0357a`) karena merah awal terlalu mirip warna bahaya (terlihat di uji browser).
 
-## Verifikasi terakhir (M1)
+## M2 — Database & backend ✅
+
+Dikerjakan:
+- `internal/store`: dua pool atas satu file WAL. **Write**: 1 koneksi, semua transaksi `BEGIN IMMEDIATE` (`_txlock=immediate`), `WithTx` helper. **Read**: 4 koneksi, `query_only`. Pragma per koneksi sesuai DATABASE.md; direktori data `0700`, file DB/WAL/SHM `0600`.
+- Runner migrasi (`//go:embed`): maju saja, satu transaksi per migrasi bersama baris `schema_migrations`, checksum dibandingkan setiap start (migrasi yang sudah dirilis tidak boleh berubah), menolak database yang lebih baru dari binary, nomor harus berurutan tanpa celah, `foreign_key_check` setelahnya; `CheckIntegrity` untuk backup (M8).
+- Middleware `httpx`: recover (500 JSON generik, detail hanya di log), request id (selalu dibuat server), client IP (`X-Forwarded-For` hanya dari proxy tepercaya, dibaca dari kanan), security headers, access log (pola route, tanpa query/header/body), `limitBody` per route (default 64 KiB).
+- `GET /health` memeriksa kedua pool (503 `unavailable` tanpa membocorkan detail).
+- `dietsis-server migrate`; `serve` menerapkan migrasi sebelum listen dan gagal jelas bila checksum berubah.
+
+Temuan penting dari test: pernyataan increment air di DATABASE.md memakai `excluded.water_glasses` di `DO UPDATE`; nilai itu sudah dijepit ≥ 0 oleh bagian INSERT sehingga **pengurangan air diam-diam hilang**. Diperbaiki memakai parameter delta mentah (`?3`) dan dokumen dikoreksi; ada test batas 0/100 dan test 80 increment paralel (hasil tepat 80).
+
+Belum di M2 (sesuai rencana): rate limit, CSRF, auth middleware (M3); decoder JSON ketat dan job retensi (M4); backup (M8).
+
+## Verifikasi terakhir (M2)
+
+| Perintah | Hasil |
+|---|---|
+| `npm run check` | lulus: 57 test frontend; Go: config, httpx, nutrition, store |
+| Live (binary lokal, DB sementara) | `migrate` dua kali idempoten; `serve` → health 200 dengan semua header; log akses tanpa data sensitif; file `0600`/dir `0700`; `sqlite3` membaca saat server jalan (WAL); `integrity_check` ok; checksum dirusak → server menolak start (exit 1) |
+
+## Verifikasi M1
 
 | Perintah | Hasil |
 |---|---|
