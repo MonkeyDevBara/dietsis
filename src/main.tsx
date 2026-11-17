@@ -5,7 +5,11 @@ import { PwaUpdatePrompt } from './components/PwaUpdatePrompt'
 import { AuthProvider } from './context/AuthContext'
 import { SessionProvider } from './context/SessionContext'
 import { ToastProvider } from './context/ToastContext'
+import { startInstallCapture } from './lib/install'
 import './index.css'
+
+// Must run before React mounts: the browser may fire beforeinstallprompt very early.
+startInstallCapture()
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Root element #root tidak ditemukan')

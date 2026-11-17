@@ -2,6 +2,7 @@ import { ArrowLeft, Download, LogOut, RefreshCw, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { PageHeader } from '../components/AppShell'
+import { InstallCard } from '../components/InstallCard'
 import { SyncBadge } from '../components/SyncBadge'
 import { Button } from '../components/ui/Button'
 import { Card, CardTitle } from '../components/ui/Card'
@@ -46,6 +47,7 @@ export default function SettingsPage() {
       />
 
       <div className="flex flex-col gap-4">
+        <InstallCard variant="settings" />
         <Card>
           <CardTitle>Akun</CardTitle>
           <div className="flex items-center gap-3">
