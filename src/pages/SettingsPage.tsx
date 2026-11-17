@@ -1,4 +1,4 @@
-import { ArrowLeft, Download, LogOut, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, LogOut, RefreshCw, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { PageHeader } from '../components/AppShell'
@@ -11,15 +11,20 @@ import { useActions, useLocalState } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { todayKey } from '../lib/date'
 import { downloadText, foodLogsCsv, weightsCsv } from '../lib/csv'
-import { useSyncStatus } from '../hooks/useSyncStatus'
+import { useSession, useSyncSnapshot } from '../context/SessionContext'
+import { useOnline, useSyncStatus } from '../hooks/useSyncStatus'
 
 export default function SettingsPage() {
-  const { user, signOut, preview } = useAuth()
+  const { user, preview } = useAuth()
   const state = useLocalState()
   const actions = useActions()
   const toast = useToast()
   const navigate = useNavigate()
   const sync = useSyncStatus()
+  const snap = useSyncSnapshot()
+  const session = useSession()
+  const online = useOnline()
+  const [syncing, setSyncing] = useState(false)
   const [confirm, setConfirm] = useState<'logout' | 'delete' | null>(null)
 
   function exportCsv(kind: 'food' | 'weight') {
@@ -62,8 +67,37 @@ export default function SettingsPage() {
         <Card>
           <CardTitle action={<SyncBadge status={sync} />}>Sinkronisasi</CardTitle>
           <p className="text-sm text-fg-muted">
-            Perubahan disimpan di perangkat lebih dulu, lalu dikirim ke server saat online. Jumlah perubahan tertunda dan waktu sinkron terakhir akan tampil di sini setelah sinkronisasi aktif.
+            Perubahan disimpan di perangkat lebih dulu, lalu dikirim ke server saat online.
+            {session.memoryOnly && ' Penyimpanan lokal tidak tersedia, data hanya tersimpan sementara.'}
           </p>
+          {session.engine && (
+            <>
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <dt className="text-fg-subtle">Tertunda</dt>
+                  <dd className="tabular font-semibold">{snap.pending} perubahan</dd>
+                </div>
+                <div>
+                  <dt className="text-fg-subtle">Terakhir sinkron</dt>
+                  <dd className="font-semibold">{snap.lastSyncAt ? new Date(snap.lastSyncAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '—'}</dd>
+                </div>
+              </dl>
+              <Button
+                className="mt-3"
+                variant="secondary"
+                size="sm"
+                loading={syncing}
+                disabled={!online}
+                icon={<RefreshCw className="size-4" aria-hidden />}
+                onClick={() => {
+                  setSyncing(true)
+                  void session.engine?.syncNow().finally(() => setSyncing(false))
+                }}
+              >
+                Sinkronkan sekarang
+              </Button>
+            </>
+          )}
         </Card>
 
         <Card>
@@ -96,12 +130,17 @@ export default function SettingsPage() {
       <ConfirmDialog
         open={confirm === 'logout'}
         title="Keluar dari Dietsis?"
-        message={preview ? 'Di mode pratinjau, data sementara di tab ini tidak akan tersimpan setelah keluar.' : 'Data di perangkat ini akan dibersihkan setelah semua perubahan tersinkron.'}
+        message={
+          preview
+            ? 'Di mode pratinjau, data di perangkat ini akan dihapus setelah keluar.'
+            : snap.pending > 0
+              ? `${snap.pending} perubahan belum tersinkron. Dietsis mencoba mengirimnya dulu; yang gagal terkirim akan hilang saat keluar.`
+              : 'Data di perangkat ini akan dibersihkan. Datamu aman di server.'
+        }
         confirmLabel="Keluar"
         onClose={() => setConfirm(null)}
         onConfirm={async () => {
-          await actions.deleteAllData()
-          await signOut()
+          await session.logout()
           void navigate('/login', { replace: true })
         }}
       />
@@ -114,7 +153,12 @@ export default function SettingsPage() {
         typeToConfirm="HAPUS"
         onClose={() => setConfirm(null)}
         onConfirm={async () => {
-          await actions.deleteAllData()
+          try {
+            await (session.deleteAllData ?? actions.deleteAllData)()
+          } catch {
+            toast({ message: 'Gagal menghapus data di server. Pastikan kamu online, lalu coba lagi.', tone: 'error' })
+            return
+          }
           setConfirm(null)
           toast({ message: 'Semua data dihapus.' })
           void navigate('/onboarding', { replace: true })

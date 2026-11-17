@@ -140,6 +140,16 @@ Lihat [OFFLINE_SYNC.md](OFFLINE_SYNC.md). Ringkas: operasi ber-ID unik di-push b
 - **Keputusan:** IndexedDB `dietsis-<userId>`. Logout dengan outbox kosong menghapus database lokal. Bila ada operasi tertunda, pengguna diperingatkan dan dapat memilih sinkron dulu atau tetap keluar (menghapus perubahan tertunda).
 - **Alasan:** perangkat bersama tidak boleh menyisakan data kesehatan; data dua akun tidak pernah tercampur.
 
+## D-024 — Baseline browser: tanpa API ES2024
+
+- **Keputusan:** kode klien tidak memakai `Promise.withResolvers` dan API sejenis; pembungkus IndexedDB memakai executor `new Promise`.
+- **Alasan:** `withResolvers` butuh Safari 17.4+; iPhone lama harus tetap bisa membuka database lokalnya (PWA offline-first).
+
+## D-025 — Entitas lokal menyimpan `server` dan `value`
+
+- **Keputusan:** setiap record IndexedDB menyimpan state server terakhir dan nilai tampilan; nilai tampilan selalu = state server + op outbox yang belum terkirim (di-*rebase* saat ack/pull).
+- **Alasan:** satu algoritma untuk ack, konflik, penolakan, dan pull; penolakan/konflik cukup membuang op dan menghitung ulang, tanpa menebak.
+
 ## D-021 — Mesin operasi tunggal untuk REST dan sync
 
 - **Keputusan:** paket `internal/sync` adalah satu-satunya jalur tulis. Endpoint REST membangun `Op` dan memanggil `Engine.Apply`; `/sync/push` memanggilnya per operasi. Setiap operasi berjalan dalam satu transaksi `BEGIN IMMEDIATE`: cek epoch → cek ledger → terapkan → `change_log` → simpan hasil ledger → commit.

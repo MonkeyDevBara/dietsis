@@ -1,6 +1,6 @@
 # PM Status
 
-**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M4 selesai → M5 berikutnya
+**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M6 selesai (inti) → M7 berikutnya
 
 ## Ringkasan milestone
 
@@ -11,9 +11,9 @@
 | M2 | Database & backend | ✅ Selesai |
 | M3 | Authentication | ✅ Selesai |
 | M4 | Business API | ✅ Selesai |
-| M5 | Frontend integration | ⏳ Berikutnya |
-| M6 | Offline engine | ☐ |
-| M7 | QA & security | ☐ |
+| M5 | Frontend integration | ✅ Selesai (inti) |
+| M6 | Offline engine | ✅ Selesai (inti) |
+| M7 | QA & security | ⏳ Berikutnya |
 | M8 | Release preparation | ☐ |
 | M9 | GitHub release | ☐ |
 
@@ -110,7 +110,29 @@ Temuan selama pengerjaan:
 - Kuantitas `1.15` ditolak validasi klien (`1.15*100 = 114.99999999999999`); diperbaiki di TS dan Go dengan toleransi, ada test.
 - Baris `days` yang dibuat oleh air akan berversi 1 (default kolom) dan membuat pembaruan langkah pertama dari klien konflik palsu; sekarang berversi 0 (D-023).
 
-## Verifikasi terakhir (M4)
+## M5 + M6 — Integrasi frontend & offline engine ✅ (hanya yang inti)
+
+Dikerjakan:
+- `services/api.ts`: klien fetch same-origin (cookie sesi, header idempotensi, timeout 15 dtk, `ApiError` dengan `transient`/`retryAfterMs`).
+- `AuthContext`: mode nyata (`VITE_GOOGLE_CLIENT_ID` terisi) memakai `GET /auth/me`, login Google via GIS → `POST /auth/google`, logout; pengguna terakhir di-cache sehingga aplikasi tetap terbuka saat server tak terjangkau. Tanpa client id = **mode pratinjau** (lokal saja, tanpa sync).
+- `IdbRepository` (IndexedDB `dietsis-<userId>`, tanpa dependency): setiap perubahan = **satu transaksi** yang menulis entitas + outbox; tiap entitas menyimpan `server` (state terakhir dari server) dan `value` (server + op belum terkirim) → *rebase* saat ack/pull. Sinkron antar-tab via `BroadcastChannel`.
+- Outbox: koalesensi (air digabung, edit digabung ke create yang belum terkirim, hapus create yang belum terkirim = tidak mengirim apa pun, restore membatalkan delete), `base_version` dihitung saat kirim, batch FIFO yang berhenti sebelum op kedua pada entitas yang sama, op in-flight tidak pernah ditimpa.
+- `SyncEngine`: pull epoch → push → pull; backoff eksponensial + jitter + `Retry-After`; 413 → batch dibelah dua; 401 → berhenti dan minta login ulang (data lokal tetap); 409 `epoch_mismatch` atau epoch berbeda saat pull → reset lokal; konflik → ambil state server + toast; ditolak → batal + toast; Web Locks agar satu tab saja yang sinkron; pemicu: buka app, perubahan lokal (debounce 1 dtk), `online`, tab terlihat, tiap 60 dtk.
+- UI: `SessionProvider` (membuka DB per pengguna, menjalankan engine, menghapus DB lokal saat logout), tombol Google di Login, badge sinkron nyata, Pengaturan (tertunda, terakhir sinkron, "Sinkronkan sekarang", logout mencoba sinkron dulu dan memperingatkan op tertunda, hapus semua data → server lalu reset lokal), **gerbang sinkron awal** (perangkat baru tidak menampilkan onboarding sebelum pull pertama selesai, supaya profil yang sudah ada di server tidak tertimpa).
+
+Sengaja dilewati (tidak kritis untuk rilis pertama): penanganan op basi > 60 hari (D di OFFLINE_SYNC), tombol "Sinkronkan dulu / Keluar dan buang" sebagai dialog terpisah (diganti peringatan + sinkron otomatis), export dari server di UI (export CSV memakai data lokal yang lengkap setelah sinkron; endpoint server tetap ada), `navigator.storage.persist()`.
+
+Belum diuji: tombol Google asli (butuh Client ID), perilaku Web Locks/BroadcastChannel antar-tab di browser sungguhan (hanya logika, bukan multi-tab nyata).
+
+## Verifikasi terakhir (M5+M6)
+
+| Perintah | Hasil |
+|---|---|
+| `npm run check` | lulus: 89 test frontend (outbox, IndexedDB, sync engine, alur app) + seluruh paket Go |
+| `npm run build` | lulus |
+| E2E nyata (Go server + Vite terpisah, sesi di-seed, WebKit) | onboarding → profil/berat/air tiba di database server; **offline**: air + makanan tampil "Offline · 2 tertunda"; server dimatikan lalu **reload** → data tetap ada ("Gagal sinkron · 2 tertunda"); server dinyalakan lagi → sinkron otomatis, air server = 5 (3+2, tanpa duplikat), makanan 1 baris, badge "Tersinkron"; 0 error konsol |
+
+## Verifikasi M4
 
 | Perintah | Hasil |
 |---|---|
