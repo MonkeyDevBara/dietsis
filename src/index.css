@@ -1,0 +1,169 @@
+@import 'tailwindcss';
+
+/*
+ * Dietsis design tokens. Source of truth for color, radius, elevation and motion.
+ * Documented in docs/DESIGN.md. Components must use these semantic utilities
+ * (bg-surface, text-fg-muted, text-protein, ...) instead of raw Tailwind palette colors,
+ * so light/dark themes stay consistent.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --ds-bg: #f6f8f5;
+  --ds-surface: #ffffff;
+  --ds-surface-muted: #eef2ee;
+  --ds-border: #dde4de;
+  --ds-fg: #16201b;
+  --ds-fg-muted: #5b6960;
+  --ds-fg-subtle: #879289;
+
+  --ds-primary: #2f7d5b;
+  --ds-primary-strong: #23604a;
+  --ds-primary-soft: #e2f1e8;
+  --ds-on-primary: #ffffff;
+
+  --ds-danger: #b93e2c;
+  --ds-danger-soft: #fbe7e3;
+  --ds-warning: #a8670c;
+  --ds-warning-soft: #fbefd9;
+
+  --ds-kcal: #2f7d5b;
+  --ds-kcal-soft: #e2f1e8;
+  --ds-protein: #c2474d;
+  --ds-protein-soft: #fbe5e6;
+  --ds-carbs: #a8670c;
+  --ds-carbs-soft: #fbefd9;
+  --ds-fat: #6f52c2;
+  --ds-fat-soft: #ece7fa;
+  --ds-water: #2b73b4;
+  --ds-water-soft: #e2eefa;
+
+  --ds-shadow-card: 0 1px 2px rgb(16 32 24 / 0.04), 0 4px 16px rgb(16 32 24 / 0.06);
+  --ds-shadow-sheet: 0 -8px 32px rgb(16 32 24 / 0.16);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ds-bg: #0f1512;
+    --ds-surface: #161f1a;
+    --ds-surface-muted: #1e2923;
+    --ds-border: #2a3730;
+    --ds-fg: #e6eee9;
+    --ds-fg-muted: #a2b0a7;
+    --ds-fg-subtle: #74817a;
+
+    --ds-primary: #5cbb8e;
+    --ds-primary-strong: #7fd0a8;
+    --ds-primary-soft: #1d3329;
+    --ds-on-primary: #0b1510;
+
+    --ds-danger: #ef8a78;
+    --ds-danger-soft: #3a1f1a;
+    --ds-warning: #e8b25a;
+    --ds-warning-soft: #362a14;
+
+    --ds-kcal: #5cbb8e;
+    --ds-kcal-soft: #1d3329;
+    --ds-protein: #f08b8f;
+    --ds-protein-soft: #3a1e20;
+    --ds-carbs: #e8b25a;
+    --ds-carbs-soft: #362a14;
+    --ds-fat: #ad98f0;
+    --ds-fat-soft: #2a2340;
+    --ds-water: #72b2ec;
+    --ds-water-soft: #172b3d;
+
+    --ds-shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+    --ds-shadow-sheet: 0 -8px 32px rgb(0 0 0 / 0.5);
+  }
+}
+
+@theme inline {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --color-bg: var(--ds-bg);
+  --color-surface: var(--ds-surface);
+  --color-surface-muted: var(--ds-surface-muted);
+  --color-border: var(--ds-border);
+  --color-fg: var(--ds-fg);
+  --color-fg-muted: var(--ds-fg-muted);
+  --color-fg-subtle: var(--ds-fg-subtle);
+
+  --color-primary: var(--ds-primary);
+  --color-primary-strong: var(--ds-primary-strong);
+  --color-primary-soft: var(--ds-primary-soft);
+  --color-on-primary: var(--ds-on-primary);
+
+  --color-danger: var(--ds-danger);
+  --color-danger-soft: var(--ds-danger-soft);
+  --color-warning: var(--ds-warning);
+  --color-warning-soft: var(--ds-warning-soft);
+
+  --color-kcal: var(--ds-kcal);
+  --color-kcal-soft: var(--ds-kcal-soft);
+  --color-protein: var(--ds-protein);
+  --color-protein-soft: var(--ds-protein-soft);
+  --color-carbs: var(--ds-carbs);
+  --color-carbs-soft: var(--ds-carbs-soft);
+  --color-fat: var(--ds-fat);
+  --color-fat-soft: var(--ds-fat-soft);
+  --color-water: var(--ds-water);
+  --color-water-soft: var(--ds-water-soft);
+
+  --radius-control: 0.875rem;
+  --radius-card: 1.25rem;
+  --radius-sheet: 1.5rem;
+  --radius-pill: 9999px;
+
+  --shadow-card: var(--ds-shadow-card);
+  --shadow-sheet: var(--ds-shadow-sheet);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@utility pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+@utility pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-bg font-sans text-fg antialiased;
+  }
+
+  /* 16px minimum prevents iOS Safari from zooming into focused fields. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ds-primary);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

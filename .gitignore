@@ -1,0 +1,25 @@
+# Dependencies & build output
+node_modules
+dist
+dist-server
+coverage
+.vite
+.vitest-cache
+*.tsbuildinfo
+
+# Secrets: never commit real environment files
+.env
+.env.*
+!.env.example
+
+# Local SQLite data and backups
+server/data/
+data/
+*.db
+*.db-wal
+*.db-shm
+*.db.gz
+
+# OS / editor
+.DS_Store
+*-debug.log
