@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/MonkeyDevBara/dietsis/server/internal/auth"
+	"github.com/MonkeyDevBara/dietsis/server/internal/backup"
 	"github.com/MonkeyDevBara/dietsis/server/internal/config"
 	"github.com/MonkeyDevBara/dietsis/server/internal/httpx"
 	"github.com/MonkeyDevBara/dietsis/server/internal/store"
@@ -46,11 +48,18 @@ func run(args []string) error {
 		return serve(cfg)
 	case "migrate":
 		return migrate(cfg)
+	case "backup":
+		return runBackup(cfg)
+	case "restore":
+		if len(args) != 2 {
+			return fmt.Errorf("usage: dietsis-server restore <backup-file.db.gz>")
+		}
+		return runRestore(cfg, args[1])
 	case "version":
 		fmt.Println(version)
 		return nil
 	default:
-		return fmt.Errorf("unknown command %q (available: serve, migrate, version)", cmd)
+		return fmt.Errorf("unknown command %q (available: serve, migrate, backup, restore, version)", cmd)
 	}
 }
 
@@ -59,6 +68,43 @@ func newLogger(cfg config.Config) *slog.Logger {
 		return slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	}
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+}
+
+// runBackup takes a verified snapshot and applies the retention policy (called by the systemd timer).
+func runBackup(cfg config.Config) error {
+	if _, err := os.Stat(cfg.DBPath); err != nil {
+		return fmt.Errorf("database not found at %s: %w", cfg.DBPath, err)
+	}
+	ctx := context.Background()
+	db, err := store.Open(ctx, cfg.DBPath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer db.Close()
+	path, err := backup.Create(ctx, db, cfg.BackupDir, time.Now())
+	if err != nil {
+		return err
+	}
+	removed, err := backup.Prune(cfg.BackupDir, cfg.BackupKeep)
+	if err != nil {
+		return fmt.Errorf("backup written to %s but retention failed: %w", path, err)
+	}
+	slog.Info("backup complete", "file", path, "pruned", len(removed), "keep", cfg.BackupKeep)
+	return nil
+}
+
+// runRestore swaps in a verified backup. The server must be stopped; a listening API is treated as running.
+func runRestore(cfg config.Config, file string) error {
+	if conn, err := net.DialTimeout("tcp", cfg.Addr, time.Second); err == nil {
+		_ = conn.Close()
+		return fmt.Errorf("the server is listening on %s: stop it first (systemctl stop dietsis)", cfg.Addr)
+	}
+	prev, err := backup.Restore(context.Background(), file, cfg.DBPath, time.Now())
+	if err != nil {
+		return err
+	}
+	slog.Info("database restored", "from", file, "to", cfg.DBPath, "previous_kept_as", prev)
+	return nil
 }
 
 func openAndMigrate(ctx context.Context, cfg config.Config) (*store.DB, error) {

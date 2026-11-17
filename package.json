@@ -14,8 +14,9 @@
     "server:dev": "cd server && go run .",
     "server:test": "cd server && go test ./...",
     "server:lint": "cd server && go vet ./... && test -z \"$(gofmt -l .)\"",
-    "server:build": "cd server && CGO_ENABLED=0 GOOS=linux GOARCH=${GOARCH:-amd64} go build -trimpath -ldflags='-s -w' -o ../dist-server/dietsis-server .",
-    "check": "npm run lint && npm run typecheck && npm test && npm run server:lint && npm run server:test"
+    "server:build": "cd server && CGO_ENABLED=0 GOOS=linux GOARCH=${GOARCH:-amd64} go build -trimpath -ldflags=\"-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o ../dist-server/dietsis-server .",
+    "check": "npm run lint && npm run typecheck && npm test && npm run server:lint && npm run server:test",
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "lucide-react": "^1.73.0",

@@ -45,6 +45,7 @@ set -a; source .env; set +a; npm run server:dev
 | `npm run server:lint` / `npm run server:test` | Backend |
 | `npm run build` | Build frontend produksi → `dist/` |
 | `npm run server:build` | Binary Linux statis → `dist-server/dietsis-server` (`GOARCH=arm64` untuk VPS ARM) |
+| `npm run release` | Tarball siap deploy (lihat [DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
 
 ## Dokumentasi
 

@@ -137,12 +137,17 @@ User non-root `dietsis`, `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome
 
 ## Checklist uji keamanan (M7)
 
-- [ ] JWT: alg none/HS256, kid tak dikenal, signature salah, iss/aud salah, kedaluwarsa, email belum terverifikasi → ditolak.
-- [ ] Sesi: cookie flags benar; logout mencabut; sesi kedaluwarsa ditolak; token di DB ter-hash.
-- [ ] CSRF: Origin asing / tanpa Origin + `Sec-Fetch-Site: cross-site` / content-type form → `403`/`415`.
-- [ ] IDOR: lintas pengguna via REST dan sync → `404`/`rejected`.
-- [ ] Rate limit → `429` + `Retry-After`; `X-Forwarded-For` dari sumber tak dipercaya diabaikan.
-- [ ] Body terlalu besar → `413`; field tak dikenal → `400`.
-- [ ] Error 500 tidak membocorkan detail internal.
-- [ ] CSV injection dimitigasi.
-- [ ] `npm audit` dan `govulncheck` bersih.
+Semua butir dibuktikan test otomatis (Go) kecuali dinyatakan lain.
+
+- [x] JWT: alg none/HS256-confusion/RS384, `kid` tak dikenal, tanda tangan salah, payload diubah, iss/aud/azp salah, kedaluwarsa, `iat` masa depan, email belum terverifikasi → ditolak (`auth/google_test.go`, 30+ kasus).
+- [x] Sesi: flag cookie benar; logout dan logout-semua mencabut di sisi server; sesi kedaluwarsa ditolak; hanya hash token di DB; token baru tiap login (`auth/session_test.go`, `httpx/auth_test.go`).
+- [x] CSRF: Origin asing / `null` / tanpa Origin + `Sec-Fetch-Site` lain / content-type form → 403/415, termasuk login dan hapus-semua-data (`httpx/auth_test.go`, `httpx/api_test.go`).
+- [x] IDOR: pengguna lain mengubah/menghapus/restore/membaca id orang lain lewat REST, sync push, pull, dan export → 404/state null, data korban utuh (`httpx/api_test.go`, `sync/engine_test.go`).
+- [x] Setiap route bisnis tanpa sesi → 401; `user_id` di header/cookie/body tidak dipercaya (400/401).
+- [x] Rate limit → 429 + `Retry-After`; `X-Forwarded-For` dari peer tak tepercaya diabaikan; memori limiter terbatas (`limit`, `httpx`). Nginx diuji langsung: spoof XFF ditimpa, burst → 429.
+- [x] Body terlalu besar → 413 (64 KiB; push 1 MiB; Nginx 1 MiB); field tak dikenal → 400.
+- [x] Error 500/503 tidak membocorkan detail internal (panic, DB mati, health).
+- [x] CSV injection dimitigasi (`export/export_test.go`).
+- [x] Backup/restore: backup korup/bukan gzip/bukan DB Dietsis ditolak tanpa menyentuh DB aktif; restore menolak bila server listen (`backup/backup_test.go` + latihan dengan binary asli).
+- [x] `govulncheck ./...` bersih. `npm audit --omit=dev` = 0 kerentanan. `npm audit` penuh: 4 *moderate* di tooling build (`workbox-build → glob → minimatch`, DoS lewat pola glob), tidak ikut ke produksi dan hanya memproses pola glob tetap dari konfigurasi kita; dibiarkan agar tidak menurunkan versi `workbox-build`.
+- [ ] Belum diuji: login Google asli end-to-end (butuh Client ID); header Nginx dari Ubuntu (konfigurasi sama telah diuji di macOS); opsi hardening systemd.

@@ -1,0 +1,20 @@
+[Unit]
+Description=Dietsis database backup
+After=dietsis.service
+
+[Service]
+Type=oneshot
+User=dietsis
+Group=dietsis
+EnvironmentFile=/etc/dietsis/dietsis.env
+ExecStart=/opt/dietsis/bin/dietsis-server backup
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/dietsis /var/backups/dietsis
+UMask=0077

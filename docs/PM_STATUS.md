@@ -1,6 +1,6 @@
 # PM Status
 
-**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M6 selesai (inti) → M7 berikutnya
+**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M8 selesai (inti) → M9 berikutnya
 
 ## Ringkasan milestone
 
@@ -13,9 +13,9 @@
 | M4 | Business API | ✅ Selesai |
 | M5 | Frontend integration | ✅ Selesai (inti) |
 | M6 | Offline engine | ✅ Selesai (inti) |
-| M7 | QA & security | ⏳ Berikutnya |
-| M8 | Release preparation | ☐ |
-| M9 | GitHub release | ☐ |
+| M7 | QA & security | ✅ Selesai (inti) |
+| M8 | Release preparation | ✅ Selesai (inti) |
+| M9 | GitHub release | ⏳ Berikutnya |
 
 ## Rencana implementasi
 
@@ -124,7 +124,31 @@ Sengaja dilewati (tidak kritis untuk rilis pertama): penanganan op basi > 60 har
 
 Belum diuji: tombol Google asli (butuh Client ID), perilaku Web Locks/BroadcastChannel antar-tab di browser sungguhan (hanya logika, bukan multi-tab nyata).
 
-## Verifikasi terakhir (M5+M6)
+## M7 + M8 — QA, keamanan, rilis ✅ (hanya yang inti; aplikasi untuk pemakaian pribadi)
+
+Dikerjakan:
+- Audit dependensi: `govulncheck` bersih; `npm audit --omit=dev` 0; sisa 4 *moderate* hanya di tooling build (dijelaskan di SECURITY.md).
+- `internal/backup` + subcommand `backup` / `restore`: snapshot `VACUUM INTO` saat server melayani, verifikasi (integrity, FK, tabel Dietsis), gzip 0600, retensi N terbaru; restore memverifikasi dulu, menolak bila API masih listen, menyimpan DB lama sebagai `.pre-restore-*`, membuang WAL/SHM basi. Test: round-trip identik, 6 jenis backup rusak ditolak tanpa menyentuh DB aktif, snapshot konsisten saat ada penulisan paralel, retensi.
+- `server/deploy/`: `dietsis.service` (hardening), `dietsis-backup.service` + timer harian, `nginx.conf` + `nginx-headers.conf` (CSP untuk Google Identity, HSTS, cache immutable untuk `/assets`, `no-cache` untuk entry point, SPA fallback, proxy, XFF ditimpa, rate limit, 1 MiB), `dietsis.env.example`, `install.sh` (provisioning idempoten: backup dulu, symlink atomik, ganti binary atomik, cek health).
+- `npm run release`: cek penuh → build SPA tanpa source map → binary Linux statis berversi → tarball + sha256; menolak build tanpa `VITE_GOOGLE_CLIENT_ID`.
+- `docs/DEPLOYMENT.md` ditulis ulang menjadi panduan langkah demi langkah (instalasi, TLS, update, rollback, backup/restore, salinan off-site).
+
+Temuan: menjalankan `npm run check` dengan `VITE_GOOGLE_CLIENT_ID` terisi membuat test aplikasi berjalan dalam mode nyata dan gagal; test sekarang memberi `googleClientId=""` secara eksplisit.
+
+Sengaja dilewati: pengujian beban, pen-test eksternal, monitoring/alerting, enkripsi backup otomatis, pipeline CI.
+
+Belum diuji: unit systemd dan `install.sh` di Ubuntu; login Google asli.
+
+## Verifikasi terakhir (M7+M8)
+
+| Perintah | Hasil |
+|---|---|
+| `npm run check` | lulus: 89 test frontend + seluruh paket Go (backup baru) |
+| `npm run release` (arm64, id dummy) | tarball dengan binary ELF aarch64 statis, tanpa `.map`, 76 entri |
+| Nginx (macOS) | `nginx -t` ok; dijalankan di depan Go + SPA: `/` dan deep link 200 dengan CSP/HSTS, `/assets` immutable + gzip, `sw.js`/`index.html` no-cache, aset hilang 404, API lewat proxy, XFF palsu ditimpa, http→https 301, CSRF 403, burst → 429, body 2 MB → 413 |
+| Latihan restore (binary asli) | backup ×3 dengan retensi 2; DB dirusak → restore sukses, data kembali, `integrity_check` ok; backup rusak ditolak; restore saat server hidup ditolak |
+
+## Verifikasi M5+M6
 
 | Perintah | Hasil |
 |---|---|
@@ -188,10 +212,11 @@ Belum diuji: tombol Google asli (butuh Client ID), perilaku Web Locks/BroadcastC
 
 ## Definition of Done
 
-- [ ] Seluruh fitur inti berfungsi
-- [ ] Frontend React berjalan · [ ] Backend Go berjalan · [ ] SQLite berjalan
-- [ ] Google OAuth berfungsi · [ ] Sesi aman · [ ] Data terisolasi per pengguna
-- [ ] Offline-first berjalan · [ ] Sinkronisasi berfungsi · [ ] Konflik ditangani
-- [ ] Export CSV · [ ] Hapus data · [ ] Backup otomatis
-- [ ] Test penting lulus · [ ] Build produksi berhasil
-- [ ] Dokumentasi lengkap · [ ] Deployment siap dijalankan
+- [x] Seluruh fitur inti berfungsi
+- [x] Frontend React berjalan · [x] Backend Go berjalan · [x] SQLite berjalan
+- [ ] Google OAuth berfungsi (kode dan test lengkap; **belum dicoba dengan Google asli**, butuh Client ID)
+- [x] Sesi aman · [x] Data terisolasi per pengguna
+- [x] Offline-first berjalan · [x] Sinkronisasi berfungsi · [x] Konflik ditangani
+- [x] Export CSV · [x] Hapus data · [x] Backup otomatis (timer; diuji manual dengan binary, belum di Ubuntu)
+- [x] Test penting lulus · [x] Build produksi berhasil
+- [x] Dokumentasi lengkap · [ ] Deployment siap dijalankan (siap; **belum dijalankan di VPS**, menunggu persetujuan dan Client ID)

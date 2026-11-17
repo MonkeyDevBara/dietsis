@@ -10,7 +10,7 @@ export function renderApp(path = '/', repo = new MemoryRepository()) {
   localStorage.clear()
   const result = render(
     <ToastProvider>
-      <AuthProvider>
+      <AuthProvider googleClientId="">
         <DataProvider repo={repo}>
           <MemoryRouter initialEntries={[path]}>
             <AppRoutes />
