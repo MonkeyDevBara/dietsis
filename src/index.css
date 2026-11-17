@@ -30,8 +30,8 @@
 
   --ds-kcal: #2f7d5b;
   --ds-kcal-soft: #e2f1e8;
-  --ds-protein: #c2474d;
-  --ds-protein-soft: #fbe5e6;
+  --ds-protein: #c0357a;
+  --ds-protein-soft: #fae6f0;
   --ds-carbs: #a8670c;
   --ds-carbs-soft: #fbefd9;
   --ds-fat: #6f52c2;
@@ -65,8 +65,8 @@
 
     --ds-kcal: #5cbb8e;
     --ds-kcal-soft: #1d3329;
-    --ds-protein: #f08b8f;
-    --ds-protein-soft: #3a1e20;
+    --ds-protein: #f08bbd;
+    --ds-protein-soft: #3a1e2e;
     --ds-carbs: #e8b25a;
     --ds-carbs-soft: #362a14;
     --ds-fat: #ad98f0;
@@ -166,4 +166,14 @@
       scroll-behavior: auto !important;
     }
   }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(1.5rem); }
+  to { opacity: 1; transform: translateY(0); }
 }

@@ -1,14 +1,14 @@
 # PM Status
 
-**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M0 selesai → M1 berikutnya
+**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M1 selesai → M2 berikutnya
 
 ## Ringkasan milestone
 
 | # | Milestone | Status |
 |---|---|---|
 | M0 | Project foundation | ✅ Selesai |
-| M1 | UI/UX | ⏳ Berikutnya |
-| M2 | Database & backend | ☐ |
+| M1 | UI/UX | ✅ Selesai |
+| M2 | Database & backend | ⏳ Berikutnya |
 | M3 | Authentication | ☐ |
 | M4 | Business API | ☐ |
 | M5 | Frontend integration | ☐ |
@@ -49,17 +49,36 @@ Penyimpangan dari rencana awal (disengaja):
 - Paket tambahan `internal/nutrition` (alasan di ARCHITECTURE.md).
 - TypeScript 6.0 bukan 7 (D-004).
 
-## Verifikasi terakhir
+## M1 — UI/UX ✅
+
+Dikerjakan:
+- Komponen design system (`src/components/ui`): Button/IconButton, TextField/NumberField/TextareaField, SegmentedControl, Stepper, ProgressRing/ProgressBar, Sheet (modal dengan fokus terjebak, Esc, kembalikan fokus), ConfirmDialog (ketik `HAPUS`), Card/EmptyState/Skeleton, toast dengan aksi Urungkan.
+- App shell responsif: bottom nav (< 1024 px) dan side rail (≥ 1024 px); route lazy-load; guard login dan profil.
+- Halaman: Login, Onboarding, Beranda, Diary, Progres (grafik berat SVG, riwayat berat, air 7 hari), Profil, Pengaturan, 404.
+- Food diary: 4 waktu makan, cari (alias, abaikan huruf besar/tanda baca), terakhir, favorit, makanan kustom, jumlah porsi, tambah cepat, ubah, hapus + Urungkan. Katalog 79 makanan Indonesia (`src/data/foods.ts`).
+- Air: tambah/kurang, riwayat 7 hari. Berat: satu entri per tanggal, pinggang opsional. Aktivitas: langkah + catatan.
+- Profil: rekomendasi target (D-011) hidup di form; target yang diedit menjadi manual dengan tombol "Pakai saran"; peringatan di bawah batas aman.
+- `lib/nutrition` (TS) + `internal/nutrition` (Go) diuji dengan **vektor bersama** `server/internal/nutrition/testdata/vectors.json`; validasi D-012 di `lib/validation`.
+- Lapisan data lokal: `LocalState` + reducer murni `applyOp` dengan bentuk operasi sama seperti protokol sync; `Repository` (implementasi memori) + selector; semua mutasi lewat `actions` (validasi di satu tempat).
+- PWA: manifest, ikon (192/512/maskable/apple-touch), service worker Workbox (hanya app shell, `/api` tidak di-cache), update lewat prompt.
+- Export CSV (preview, dari data lokal) dengan mitigasi CSV injection.
+
+Batasan yang disengaja di M1 (dikerjakan milestone berikutnya):
+- **Login adalah mode pratinjau** (tanpa Google/server) dan **data hanya di memori**: hilang saat reload. Diganti Google OAuth di M3/M5 dan IndexedDB di M6.
+- Status sinkronisasi hanya menampilkan "Pratinjau"/"Offline"; mesin sync di M6.
+- Export CSV memakai data lokal; versi server (`GET /export`, D-019) di M4.
+
+Penyimpangan: warna protein diganti ke magenta (`#c0357a`) karena merah awal terlalu mirip warna bahaya (terlihat di uji browser).
+
+## Verifikasi terakhir (M1)
 
 | Perintah | Hasil |
 |---|---|
-| `npm run lint` | lulus |
-| `npm run typecheck` | lulus |
-| `npm test` | 5 test lulus |
-| `npm run build` | lulus |
-| `npm run server:lint` (`go vet`, `gofmt`) | lulus |
-| `npm run server:test` | config + httpx lulus |
-| `curl /api/v1/health` (server lokal) | `200 {"data":{"status":"ok",…}}` |
+| `npm run lint` / `npm run typecheck` | lulus |
+| `npm test` | 57 test lulus (nutrisi + vektor, validasi, pencarian, reducer/selector, CSV, Sheet a11y, alur aplikasi: login → onboarding → log makanan/air → hapus data) |
+| `npm run server:lint` / `npm run server:test` | lulus (config, httpx, nutrition) |
+| `npm run build` | lulus; 28 entri precache (±453 KiB), JS utama 87 kB gzip |
+| Browser (WebKit headless, 390×844 dan 1280×800, terang/gelap) | onboarding, beranda, picker makanan, diary, progres, side rail tampil benar; 0 error konsol |
 
 ## Keputusan terbuka / butuh input pemilik
 

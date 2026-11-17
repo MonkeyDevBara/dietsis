@@ -35,7 +35,7 @@ Semua warna didefinisikan sebagai variabel `--ds-*` dengan varian gelap via `pre
 | Nutrisi | Token | Terang | Gelap |
 |---|---|---|---|
 | Kalori | `kcal` | `#2f7d5b` | `#5cbb8e` |
-| Protein | `protein` | `#c2474d` | `#f08b8f` |
+| Protein | `protein` | `#c0357a` | `#f08bbd` |
 | Karbohidrat | `carbs` | `#a8670c` | `#e8b25a` |
 | Lemak | `fat` | `#6f52c2` | `#ad98f0` |
 | Air | `water` | `#2b73b4` | `#72b2ec` |

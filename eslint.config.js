@@ -20,6 +20,8 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+      // React handlers conventionally use shorthand arrows: onClick={() => setOpen(false)}.
+      '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],
     },
   },
   {

@@ -1,0 +1,61 @@
+{
+  "_comment": "Shared test vectors for src/lib/nutrition.ts and server/internal/nutrition. Expected values were computed by hand from docs/DECISIONS.md D-010/D-011; both implementations must match exactly.",
+  "targets": [
+    {
+      "name": "female losing weight, moderate",
+      "input": { "gender": "female", "age": 30, "height_cm": 160, "weight_kg": 70, "goal_weight_kg": 60, "activity_level": "moderate" },
+      "expected": { "calorie_target": 1650, "protein_target_g": 96, "water_target_glasses": 9 }
+    },
+    {
+      "name": "male gaining weight, light",
+      "input": { "gender": "male", "age": 25, "height_cm": 175, "weight_kg": 60, "goal_weight_kg": 70, "activity_level": "light" },
+      "expected": { "calorie_target": 2460, "protein_target_g": 96, "water_target_glasses": 8 }
+    },
+    {
+      "name": "suggestion clamped to safe floor, water clamped to minimum, diff exactly -1 means lose",
+      "input": { "gender": "female", "age": 60, "height_cm": 150, "weight_kg": 45, "goal_weight_kg": 44, "activity_level": "sedentary" },
+      "expected": { "calorie_target": 1200, "protein_target_g": 70, "water_target_glasses": 6 }
+    },
+    {
+      "name": "maintain, very active, water clamped to maximum",
+      "input": { "gender": "male", "age": 40, "height_cm": 190, "weight_kg": 150, "goal_weight_kg": 150, "activity_level": "very_active" },
+      "expected": { "calorie_target": 4740, "protein_target_g": 240, "water_target_glasses": 16 }
+    },
+    {
+      "name": "diff below 1 kg means maintain",
+      "input": { "gender": "female", "age": 35, "height_cm": 165, "weight_kg": 80, "goal_weight_kg": 80.5, "activity_level": "active" },
+      "expected": { "calorie_target": 2580, "protein_target_g": 128, "water_target_glasses": 10 }
+    }
+  ],
+  "entry_totals": [
+    {
+      "name": "half kcal rounds up, exact quarter macros",
+      "per_serving": { "kcal": 195, "protein_g": 4, "carbs_g": 42, "fat_g": 0.5 },
+      "quantity": 1.5,
+      "expected": { "kcal": 293, "protein_g": 6, "carbs_g": 63, "fat_g": 0.8 }
+    },
+    {
+      "name": "floating point path: 0.15 x 3 = 0.44999999999999996, x10 = 4.5 in IEEE, rounds to 0.5",
+      "per_serving": { "kcal": 33.5, "protein_g": 0.15, "carbs_g": 0.1, "fat_g": 0.07 },
+      "quantity": 3,
+      "expected": { "kcal": 101, "protein_g": 0.5, "carbs_g": 0.3, "fat_g": 0.2 }
+    },
+    {
+      "name": "fractional quantity",
+      "per_serving": { "kcal": 350, "protein_g": 8, "carbs_g": 52, "fat_g": 13 },
+      "quantity": 0.25,
+      "expected": { "kcal": 88, "protein_g": 2, "carbs_g": 13, "fat_g": 3.3 }
+    }
+  ],
+  "sum_totals": [
+    {
+      "name": "sums rounded entries and removes float noise",
+      "items": [
+        { "kcal": 293, "protein_g": 6, "carbs_g": 63, "fat_g": 0.8 },
+        { "kcal": 101, "protein_g": 0.5, "carbs_g": 0.3, "fat_g": 0.2 },
+        { "kcal": 88, "protein_g": 2, "carbs_g": 13, "fat_g": 3.3 }
+      ],
+      "expected": { "kcal": 482, "protein_g": 8.5, "carbs_g": 76.3, "fat_g": 4.3 }
+    }
+  ]
+}
