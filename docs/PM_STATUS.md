@@ -1,6 +1,6 @@
 # PM Status
 
-**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M3 selesai → M4 berikutnya
+**Diperbarui:** 2026-11-17 · **Branch kerja:** `develop` · **Milestone aktif:** M4 selesai → M5 berikutnya
 
 ## Ringkasan milestone
 
@@ -10,8 +10,8 @@
 | M1 | UI/UX | ✅ Selesai |
 | M2 | Database & backend | ✅ Selesai |
 | M3 | Authentication | ✅ Selesai |
-| M4 | Business API | ⏳ Berikutnya |
-| M5 | Frontend integration | ☐ |
+| M4 | Business API | ✅ Selesai |
+| M5 | Frontend integration | ⏳ Berikutnya |
 | M6 | Offline engine | ☐ |
 | M7 | QA & security | ☐ |
 | M8 | Release preparation | ☐ |
@@ -96,7 +96,28 @@ Dikerjakan:
 
 Belum diuji dengan Google sungguhan: login end-to-end butuh Client ID (M5). Yang sudah diverifikasi dengan data nyata: JWKS publik Google berhasil diunduh dan di-parse (2 kunci RSA).
 
-## Verifikasi terakhir (M3)
+## M4 — Business API ✅
+
+Dikerjakan:
+- `internal/validate`: batas D-012 + helper (teks: jumlah rune, tanpa karakter kontrol; tanggal nyata 2000-01-01 s.d. besok UTC; kuantitas ≤ 2 desimal dengan toleransi float).
+- `internal/sync` (satu jalur tulis, D-021): 11 jenis operasi (`profile.put`, `favorite.set`, `day.water`, `day.update`, `food_log.create/update/delete/restore`, `custom_food.create`, `weight.put/delete`), ledger idempotensi, `base_version` + konflik eksplisit, `change_log` terkompaksi, epoch, `Pull` inkremental, daftar berpaginasi (cursor opaque), `ReplaceFavorites`, `DeleteAllData`, retensi (soft delete 30 hari, ledger 90 hari).
+- Target profil non-manual dihitung ulang server dengan `internal/nutrition` (vektor bersama dengan frontend).
+- `internal/export`: CSV per dataset (BOM, CRLF, kutip benar, anti formula injection; angka tidak diberi apostrof).
+- `internal/httpx/api.go`: seluruh endpoint di API.md (profile, favorites, days + water, food-logs + restore, custom-foods, weights, sync push/pull, export, account/data) di balik `authenticate`; push 1 MiB dengan limiter per pengguna.
+- `serve`: loop pemeliharaan tiap jam (sesi kedaluwarsa + retensi).
+
+Temuan selama pengerjaan:
+- Kuantitas `1.15` ditolak validasi klien (`1.15*100 = 114.99999999999999`); diperbaiki di TS dan Go dengan toleransi, ada test.
+- Baris `days` yang dibuat oleh air akan berversi 1 (default kolom) dan membuat pembaruan langkah pertama dari klien konflik palsu; sekarang berversi 0 (D-023).
+
+## Verifikasi terakhir (M4)
+
+| Perintah | Hasil |
+|---|---|
+| `npm run check` | lulus: 57 test frontend; 218 test/subtest Go di 9 paket (auth, config, export, httpx, limit, nutrition, store, sync, validate) |
+| Live (binary, DB sementara, sesi di-seed karena login Google butuh Client ID) | profil → target 1650/96/9; food log 201 lalu duplikat 200 dengan total 293 kkal; air dengan kunci sama ×3 tetap 1; pengguna lain mengubah/menghapus log orang → 404; konflik 409 membawa `error.current`; export CSV ber-BOM/CRLF; pull; hapus semua data → epoch 2 → push epoch 1 ditolak 409, pengguna lain tidak terpengaruh; 0 error di log |
+
+## Verifikasi M3
 
 | Perintah | Hasil |
 |---|---|

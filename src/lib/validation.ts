@@ -93,7 +93,8 @@ export function validateCustomFood(f: CustomFoodInput): FieldErrors<CustomFoodIn
 export function quantityError(q: number): string | undefined {
   const err = range(q, LIMITS.quantity.min, LIMITS.quantity.max)
   if (err) return err
-  if (Math.round(q * 100) !== q * 100) return 'Maksimal 2 angka desimal'
+  // Tolerance: 1.15 * 100 is 114.99999999999999, which is still a valid 2-decimal value.
+  if (Math.abs(q * 100 - Math.round(q * 100)) > 1e-9) return 'Maksimal 2 angka desimal'
   return undefined
 }
 

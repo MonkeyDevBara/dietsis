@@ -16,6 +16,7 @@ import (
 	"github.com/MonkeyDevBara/dietsis/server/internal/config"
 	"github.com/MonkeyDevBara/dietsis/server/internal/httpx"
 	"github.com/MonkeyDevBara/dietsis/server/internal/store"
+	dsync "github.com/MonkeyDevBara/dietsis/server/internal/sync"
 )
 
 // version is set at build time: -ldflags "-X main.version=v1.2.3".
@@ -100,7 +101,8 @@ func serve(cfg config.Config) error {
 		slog.Warn("DIETSIS_GOOGLE_CLIENT_ID is empty: Google login is disabled (POST /auth/google answers 503)")
 	}
 	sessions := &auth.Sessions{Store: db, TTL: cfg.SessionTTL, Secure: cfg.CookieSecure, Now: time.Now}
-	go purgeSessionsLoop(ctx, db)
+	engine := dsync.NewEngine(db)
+	go maintenanceLoop(ctx, db, engine)
 
 	srv := &http.Server{
 		Addr: cfg.Addr,
@@ -114,6 +116,8 @@ func serve(cfg config.Config) error {
 				Users:        db,
 				PublicOrigin: cfg.PublicOrigin,
 				Limits:       httpx.DefaultLimits(),
+				Data:         engine,
+				ReadDB:       db.Read,
 			},
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
@@ -144,18 +148,27 @@ func serve(cfg config.Config) error {
 	return srv.Shutdown(shutdownCtx)
 }
 
-// purgeSessionsLoop deletes expired sessions at start and then hourly until ctx ends.
-func purgeSessionsLoop(ctx context.Context, db *store.DB) {
-	purge := func() {
-		if n, err := db.PurgeExpiredSessions(ctx, time.Now()); err != nil {
+// maintenanceLoop applies the retention policy at start and then hourly until ctx ends: expired
+// sessions, soft-deleted food logs older than 30 days, and idempotency-ledger rows older than 90 days.
+func maintenanceLoop(ctx context.Context, db *store.DB, eng *dsync.Engine) {
+	run := func() {
+		now := time.Now()
+		if n, err := db.PurgeExpiredSessions(ctx, now); err != nil {
 			if ctx.Err() == nil {
 				slog.Error("purge expired sessions", "err", err)
 			}
 		} else if n > 0 {
 			slog.Info("purged expired sessions", "count", n)
 		}
+		if st, err := eng.Purge(ctx, now); err != nil {
+			if ctx.Err() == nil {
+				slog.Error("purge retention", "err", err)
+			}
+		} else if st.FoodLogs > 0 || st.Operations > 0 {
+			slog.Info("retention purge", "food_logs", st.FoodLogs, "operations", st.Operations)
+		}
 	}
-	purge()
+	run()
 	t := time.NewTicker(time.Hour)
 	defer t.Stop()
 	for {
@@ -163,7 +176,7 @@ func purgeSessionsLoop(ctx context.Context, db *store.DB) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			purge()
+			run()
 		}
 	}
 }

@@ -72,6 +72,17 @@ Entitas yang dapat diubah membawa `version` (integer, naik setiap penulisan). Mu
 
 `base_version: 0` berarti "saya yakin entitas belum ada".
 
+### Perilaku yang ditetapkan implementasi (M4)
+
+- **Satu jalur tulis:** setiap endpoint mutasi membentuk operasi sync dan memanggil mesin yang sama dengan `/sync/push`; hasilnya dipetakan ke HTTP: `rejected` → 422 (`validation_failed`, dengan `details`) atau 400; `conflict` tanpa entitas → 404; `conflict` dengan entitas → 409 + `error.current`.
+- **404, bukan 403** untuk id milik pengguna lain (tidak membocorkan keberadaan).
+- **Path menentukan, body mengikuti:** `date`/`id` di URL tidak boleh diulang di body (400). Field tak dikenal di body → 400.
+- **Kunci idempotensi** dibatasi per pengguna dan per jenis operasi: memakai kunci yang sama untuk operasi lain → 400, bukan jawaban operasi lama. Retry dijawab dari ledger (hasil tersimpan; `state` adalah state saat operasi pertama).
+- `POST /food-logs` dan `POST /custom-foods`: `201` hanya untuk entitas yang benar-benar baru; id yang sudah ada atau retry berkunci → `200`. Tanpa `id`, server membuatkan UUID (request tidak idempoten).
+- `DELETE /food-logs/{id}` dan `POST .../restore`: `404` bila tidak ada; no-op `200` bila sudah dalam keadaan tujuan. `DELETE /weights/{date}`: `204` bila tidak ada; `409` bila `base_version` basi.
+- `409 epoch_mismatch` membawa `error.details.data_epoch` (string) berisi epoch server.
+- Batas: body 64 KiB (push 1 MiB, maks 200 operasi), rentang tanggal 366 hari, `limit` maks 500 (weights 1.000, pull 1.000), `cursor` opaque (tidak valid → 400).
+
 ## Skema entitas
 
 ```ts

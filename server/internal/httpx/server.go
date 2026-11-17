@@ -2,12 +2,14 @@ package httpx
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"net/http"
 	"net/netip"
 	"time"
 
 	"github.com/MonkeyDevBara/dietsis/server/internal/auth"
+	dsync "github.com/MonkeyDevBara/dietsis/server/internal/sync"
 )
 
 // Deps carries everything the handlers need. Grows as milestones add auth and the sync engine.
@@ -29,6 +31,10 @@ type AuthDeps struct {
 	Users        userStore
 	PublicOrigin string
 	Limits       Limits
+	// Data enables the business API (profile, food logs, sync, ...). ReadDB is the read pool used
+	// by CSV export. Both nil registers only the auth routes.
+	Data   *dsync.Engine
+	ReadDB *sql.DB
 }
 
 type healthResponse struct {
@@ -81,6 +87,9 @@ func NewHandler(d Deps) http.Handler {
 		rt.mux.Handle("POST /api/v1/auth/google", limitBody(DefaultBodyLimit, rateLimitIP(kit.limits.login, http.HandlerFunc(kit.login))))
 		rt.mux.Handle("GET /api/v1/auth/me", kit.authenticate(http.HandlerFunc(kit.me)))
 		rt.mux.Handle("POST /api/v1/auth/logout", limitBody(DefaultBodyLimit, general(http.HandlerFunc(kit.logout))))
+		if d.Auth.Data != nil {
+			registerAPI(rt.mux, kit, d.Auth.Data, d.Auth.ReadDB)
+		}
 		root = csrfGuard(kit.origin, rt.mux)
 	}
 

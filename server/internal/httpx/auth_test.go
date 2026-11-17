@@ -16,6 +16,7 @@ import (
 	"github.com/MonkeyDevBara/dietsis/server/internal/auth"
 	"github.com/MonkeyDevBara/dietsis/server/internal/limit"
 	"github.com/MonkeyDevBara/dietsis/server/internal/store"
+	dsync "github.com/MonkeyDevBara/dietsis/server/internal/sync"
 )
 
 const testOrigin = "https://dietsis.example"
@@ -78,7 +79,7 @@ func newEnv(t *testing.T, o envOpts) *env {
 	e.h = NewHandler(Deps{
 		Ping:    db.Ping,
 		Version: "t",
-		Auth:    &AuthDeps{Sessions: e.sessions, Verifier: verifier, Users: db, PublicOrigin: testOrigin, Limits: limits},
+		Auth:    &AuthDeps{Sessions: e.sessions, Verifier: verifier, Users: db, PublicOrigin: testOrigin, Limits: limits, Data: dsync.NewEngine(db), ReadDB: db.Read},
 	})
 	return e
 }

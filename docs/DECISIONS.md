@@ -139,3 +139,19 @@ Lihat [OFFLINE_SYNC.md](OFFLINE_SYNC.md). Ringkas: operasi ber-ID unik di-push b
 
 - **Keputusan:** IndexedDB `dietsis-<userId>`. Logout dengan outbox kosong menghapus database lokal. Bila ada operasi tertunda, pengguna diperingatkan dan dapat memilih sinkron dulu atau tetap keluar (menghapus perubahan tertunda).
 - **Alasan:** perangkat bersama tidak boleh menyisakan data kesehatan; data dua akun tidak pernah tercampur.
+
+## D-021 — Mesin operasi tunggal untuk REST dan sync
+
+- **Keputusan:** paket `internal/sync` adalah satu-satunya jalur tulis. Endpoint REST membangun `Op` dan memanggil `Engine.Apply`; `/sync/push` memanggilnya per operasi. Setiap operasi berjalan dalam satu transaksi `BEGIN IMMEDIATE`: cek epoch → cek ledger → terapkan → `change_log` → simpan hasil ledger → commit.
+- **Alasan:** aturan idempotensi, versi, konflik, dan log perubahan tidak boleh terduplikasi di dua tempat. Efek dan catatan ledger di-commit atomik, sehingga retry setelah respons hilang tidak pernah menerapkan dua kali.
+- **Konsekuensi:** hasil `conflict`/`rejected` juga dicatat di ledger agar retry deterministik; entri ledger dipangkas setelah 90 hari.
+
+## D-022 — Kunci idempotensi terikat pada jenis operasi
+
+- **Keputusan:** satu `op_id` hanya valid untuk satu `type` per pengguna; pemakaian ulang untuk jenis lain ditolak (`bad_request`).
+- **Alasan:** tanpa ini, kunci yang dipakai ulang secara tidak sengaja akan "menjawab" dengan hasil operasi yang berbeda.
+
+## D-023 — `days.version` hanya untuk langkah/catatan
+
+- **Keputusan:** air adalah counter komutatif di luar versioning; baris yang dibuat oleh air berversi 0.
+- **Alasan:** lihat DATABASE.md; mencegah konflik palsu antara air dan pembaruan langkah.

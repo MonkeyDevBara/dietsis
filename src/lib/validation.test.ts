@@ -57,6 +57,7 @@ describe('food validation', () => {
     expect(quantityError(51)).toBeDefined()
     expect(quantityError(1.234)).toBeDefined()
     expect(quantityError(1.25)).toBeUndefined()
+    expect(quantityError(1.15)).toBeUndefined() // float product is 114.99999999999999
   })
 
   it('rejects control characters in names', () => {

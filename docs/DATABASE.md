@@ -112,6 +112,8 @@ SET water_glasses = max(0, min(100, water_glasses + ?3)), updated_at = ?4;
 
 Parameter `?3` (delta) harus dipakai langsung di `DO UPDATE`, **bukan** `excluded.water_glasses`: nilai `excluded` sudah dijepit ≥ 0 oleh bagian INSERT sehingga pengurangan akan hilang diam-diam (ditemukan oleh test di M2).
 
+**`days.version`** bernilai 0 untuk baris yang dibuat oleh increment air dan naik hanya pada `day.update` (langkah/catatan). Dengan begitu klien yang mencatat air lebih dulu tetap bisa mengirim `base_version: 0` untuk pembaruan langkah pertamanya tanpa konflik palsu.
+
 **Kompaksi change log** (dalam transaksi yang sama dengan penulisan entitas):
 
 ```sql

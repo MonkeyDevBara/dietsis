@@ -23,8 +23,8 @@ type User struct {
 	CreatedAt int64 // epoch ms
 }
 
-// newID returns a random RFC 4122 v4 UUID.
-func newID() (string, error) {
+// NewID returns a random RFC 4122 v4 UUID (lowercase, canonical form).
+func NewID() (string, error) {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		return "", err
@@ -49,7 +49,7 @@ func (d *DB) UpsertGoogleUser(ctx context.Context, sub, email, name, picture str
 				return err
 			}
 		case errors.Is(err, sql.ErrNoRows):
-			if u.ID, err = newID(); err != nil {
+			if u.ID, err = NewID(); err != nil {
 				return err
 			}
 			u.CreatedAt, u.DataEpoch = ms, 1
